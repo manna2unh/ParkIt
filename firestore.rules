@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Each signed-in user can read and write only their own account document
+    // (email + vehicle), written by AccountRepository.
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Live parking spots written by ParkingRepository.
+    // Doc id is "<lotToken>_<spot>" e.g. UNH-01_12 and fields are lot, spot, takenBy, startedAt.
+    match /parking/{spotId} {
+      // Any signed-in user sees which spots are taken.
+      allow read: if request.auth != null;
+      // You can only claim a spot as yourself, and only if nobody holds it yet.
+      allow create: if request.auth != null
+                    && request.resource.data.takenBy == request.auth.uid;
+      // You can only free a spot you took.
+      allow delete: if request.auth != null
+                    && resource.data.takenBy == request.auth.uid;
+      allow update: if false;
+    }
+  }
+}
